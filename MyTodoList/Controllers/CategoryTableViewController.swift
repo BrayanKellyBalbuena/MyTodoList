@@ -8,8 +8,9 @@
 
 import UIKit
 import RealmSwift
+import ChameleonFramework
 
-class CategoryTableViewController: UITableViewController {
+class CategoryTableViewController: SwipeTableViewController {
     
     var categories: Results<Category>?
     let realm = try! Realm()
@@ -17,6 +18,10 @@ class CategoryTableViewController: UITableViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        
+        tableView.rowHeight = 80.0
+        tableView.separatorStyle = .none
+        
         loadItems()
     }
     
@@ -27,11 +32,21 @@ class CategoryTableViewController: UITableViewController {
     
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) ->
         UITableViewCell {
-            let cell = tableView.dequeueReusableCell(withIdentifier: "CategoryCell", for: indexPath)
-            cell.textLabel?.text = categories?[indexPath.row].name ?? "No Categoris added yet"
+            let cell = super.tableView(tableView, cellForRowAt: indexPath)
+            
+            if let category = categories?[indexPath.row] {
+                cell.textLabel?.text = category.name
+                let currentColor = UIColor(hexString: category.hexcolor)
+                cell.backgroundColor = currentColor
+                cell.textLabel?.textColor = ContrastColorOf(currentColor!, returnFlat: true)
+                
+            } else {
+                 cell.textLabel?.text = categories?[indexPath.row].name ?? "No Categoris added yet"
+            }
             
             return cell
         }
+    
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         performSegue(withIdentifier: "goToItems", sender: self)
     }
@@ -71,7 +86,7 @@ class CategoryTableViewController: UITableViewController {
         let action = UIAlertAction(title: "Add Item", style: .default){ (action) in
                 let category = Category()
                 category.name = textField.text!
-            
+                category.hexcolor = UIColor.randomFlat.hexValue()
                 self.saveCategories(category: category)
             }
         
@@ -83,25 +98,38 @@ class CategoryTableViewController: UITableViewController {
         alert.addAction(action)
         present(alert, animated: true, completion: nil)
     }
+    
+     override func updateModel(at indexPath: IndexPath) {
+        if let categoryForDelete = categories?[indexPath.row] {
+            do {
+                try realm.write {
+                    realm.delete(categoryForDelete);
+                }
+            } catch {
+                print("\(error)")
+            }
+            
+            tableView.reloadData()
+        }
+    }
 }
 
-// MARK: SearchBar Delegates
+ //MARK: SearchBar Delegates
 
-//extension CategoryTableViewController : UISearchBarDelegate {
-//    func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
-//        let request: NSFetchRequest<Category> = Category.fetchRequest()
-//        
-//        request.predicate = NSPredicate(format: "name CONTAINS[cd] %@", searchBar.text!)
-//        request.sortDescriptors = [NSSortDescriptor(key: "name", ascending: true)]
-//        
-//        loadItems(with: request)
-//    }
-//    
-//    func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
-//        if searchBar.text?.count == 0 {
-//            DispatchQueue.main.async {
-//                searchBar.resignFirstResponder()
-//            }
-//        }
-//    }
-//}
+extension CategoryTableViewController : UISearchBarDelegate {
+    func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
+        categories = categories?.filter("name CONTAINS[cd] %@", searchBar.text!)
+            .sorted(byKeyPath: "name", ascending: false)
+        
+        tableView.reloadData()
+    }
+    
+    func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
+        if searchBar.text?.count == 0 {
+            loadItems()
+            DispatchQueue.main.async {
+                searchBar.resignFirstResponder()
+            }
+        }
+    }
+}
