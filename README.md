@@ -15,7 +15,7 @@ Application that allows you to manage your task list.
 * Save data to local device
 
 ## App Arquitecture
- *  MCV
+ *  MVC
 
 ## App Libraries
  * RealmSwift
